@@ -31,10 +31,13 @@ typedef float real;                    // Precision of float numbers
 struct vocab_word {
   long long cn;
   int *point;
-  char *word, *code, codelen;
+
+  char *word;
+  int8_t *code;
+  int8_t codelen;
 };
 
-char train_file[MAX_STRING], output_file[MAX_STRING];
+char train_file[MAX_STRING], output_file[MAX_STRING], output_classifier[MAX_STRING];
 char save_vocab_file[MAX_STRING], read_vocab_file[MAX_STRING];
 struct vocab_word *vocab;
 int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
@@ -166,7 +169,7 @@ void SortVocab() {
   vocab = (struct vocab_word *)realloc(vocab, (vocab_size + 1) * sizeof(struct vocab_word));
   // Allocate memory for the binary tree construction
   for (a = 0; a < vocab_size; a++) {
-    vocab[a].code = (char *)calloc(MAX_CODE_LENGTH, sizeof(char));
+    vocab[a].code = (int8_t *)calloc(MAX_CODE_LENGTH, sizeof(int8_t));
     vocab[a].point = (int *)calloc(MAX_CODE_LENGTH, sizeof(int));
   }
 }
@@ -198,7 +201,7 @@ void CreateBinaryTree() {
   long long a, b, i, min1i, min2i, pos1, pos2, point[MAX_CODE_LENGTH];
   char code[MAX_CODE_LENGTH];
   long long *count = (long long *)calloc(vocab_size * 2 + 1, sizeof(long long));
-  long long *binary = (long long *)calloc(vocab_size * 2 + 1, sizeof(long long));
+  long long *binary_side = (long long *)calloc(vocab_size * 2 + 1, sizeof(long long));
   long long *parent_node = (long long *)calloc(vocab_size * 2 + 1, sizeof(long long));
   for (a = 0; a < vocab_size; a++) count[a] = vocab[a].cn;
   for (a = vocab_size; a < vocab_size * 2; a++) count[a] = 1e15;
@@ -234,14 +237,29 @@ void CreateBinaryTree() {
     count[vocab_size + a] = count[min1i] + count[min2i];
     parent_node[min1i] = vocab_size + a;
     parent_node[min2i] = vocab_size + a;
-    binary[min2i] = 1;
+    binary_side[min2i] = 1;
   }
-  // Now assign binary code to each vocabulary word
+  // Outputs the tree if requested
+  if (output_classifier) {
+    FILE * file = fopen(output_classifier, "wb");
+    // The root is not written (node vocab_size * 2 - 2)
+    for (b = 0; b < vocab_size * 2 - 2; b++) {
+      if (binary) {
+        // In binary mode, just write the parent * sign
+        // where sign is +1 or -1, depending on which child is used
+        long long d = (2 * binary_side[b] - 1) * parent_node[b];
+        fwrite(&d, sizeof(long long), 1,  file);
+      } else fprintf(file, "%lld %lld %lld\n", b, parent_node[b], binary_side[b]);
+    }
+    fclose(file);
+  }
+
+  // Now assign binary_side code to each vocabulary word
   for (a = 0; a < vocab_size; a++) {
     b = a;
     i = 0;
     while (1) {
-      code[i] = binary[b];
+      code[i] = binary_side[b];
       point[i] = b;
       i++;
       b = parent_node[b];
@@ -255,7 +273,7 @@ void CreateBinaryTree() {
     }
   }
   free(count);
-  free(binary);
+  free(binary_side);
   free(parent_node);
 }
 
@@ -565,6 +583,22 @@ void TrainModel() {
       else for (b = 0; b < layer1_size; b++) fprintf(fo, "%lf ", syn0[a * layer1_size + b]);
       fprintf(fo, "\n");
     }
+
+    // Save the classifier
+    if (output_classifier && hs) {
+      // append to the tree that was already output
+      FILE * fhs = fopen(output_classifier, "ab");
+      // output the layer
+      for (a = 0; a < vocab_size; a++) {
+        if (binary) {
+          for (b = 0; b < layer1_size; b++) fwrite(&syn1[a * layer1_size + b], sizeof(real), 1, fhs);
+        } else {
+          for (b = 0; b < layer1_size; b++) fprintf(fhs, "%lf ", syn1[a * layer1_size + b]);
+          fprintf(fhs, "\n");
+        }
+      }
+      fclose(fhs);
+    }
   } else {
     // Run K-means on the word vectors
     int clcn = classes, iter = 10, closeid;
@@ -659,6 +693,8 @@ int main(int argc, char **argv) {
     printf("\t\tSet the debug mode (default = 2 = more info during training)\n");
     printf("\t-binary <int>\n");
     printf("\t\tSave the resulting vectors in binary moded; default is 0 (off)\n");
+    printf("\t-output-classifier <int>\n");
+    printf("\t\tOutput the classifier (one vector or the hierarchy); default is 0 (off)\n");
     printf("\t-save-vocab <file>\n");
     printf("\t\tThe vocabulary will be saved to <file>\n");
     printf("\t-read-vocab <file>\n");
@@ -678,6 +714,7 @@ int main(int argc, char **argv) {
   if ((i = ArgPos((char *)"-read-vocab", argc, argv)) > 0) strcpy(read_vocab_file, argv[i + 1]);
   if ((i = ArgPos((char *)"-debug", argc, argv)) > 0) debug_mode = atoi(argv[i + 1]);
   if ((i = ArgPos((char *)"-binary", argc, argv)) > 0) binary = atoi(argv[i + 1]);
+  if ((i = ArgPos((char *)"-output-classifier", argc, argv)) > 0) strcpy(output_classifier, argv[i + 1]);
   if ((i = ArgPos((char *)"-cbow", argc, argv)) > 0) cbow = atoi(argv[i + 1]);
   if (cbow) alpha = 0.05;
   if ((i = ArgPos((char *)"-alpha", argc, argv)) > 0) alpha = atof(argv[i + 1]);
