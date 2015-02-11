@@ -18,7 +18,12 @@
 #include <math.h>
 #include <pthread.h>
 
+/// Maximum string length for words
 #define MAX_STRING 100
+
+/// Maximum string length for arguments
+#define MAX_ARG_STRING 1000
+
 #define EXP_TABLE_SIZE 1000
 #define MAX_EXP 6
 #define MAX_SENTENCE_LENGTH 1000
@@ -38,8 +43,8 @@ struct vocab_word {
   int8_t codelen;
 };
 
-char train_file[MAX_STRING], output_file[MAX_STRING], output_classifier[MAX_STRING];
-char save_vocab_file[MAX_STRING], read_vocab_file[MAX_STRING];
+char train_file[MAX_ARG_STRING], output_file[MAX_ARG_STRING], output_classifier[MAX_ARG_STRING];
+char save_vocab_file[MAX_ARG_STRING], read_vocab_file[MAX_ARG_STRING];
 struct vocab_word *vocab;
 int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
 int *vocab_hash;
