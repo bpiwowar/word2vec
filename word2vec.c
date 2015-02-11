@@ -27,9 +27,10 @@
 const int vocab_hash_size = 30000000;  // Maximum 30 * 0.7 = 21M words in the vocabulary
 
 typedef float real;                    // Precision of float numbers
+typedef int64_t longint;
 
 struct vocab_word {
-  long long cn;
+  longint cn;
   int *point;
 
   char *word;
@@ -270,8 +271,8 @@ void CreateBinaryTree() {
       if (binary) {
         // In binary mode, just write the parent * sign
         // where sign is +1 or -1, depending on which child is used
-        long long d = (2 * binary_side[b] - 1) * parent_node[b];
-        fwrite(&d, sizeof(long long), 1,  file);
+        longint d = (2 * binary_side[b] - 1) * parent_node[b];
+        fwrite(&d, sizeof(longint), 1,  file);
       } else fprintf(file, "%lld %lld %lld\n", b, parent_node[b], binary_side[b]);
     }
     fclose(file);

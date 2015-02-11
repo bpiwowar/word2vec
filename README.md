@@ -6,9 +6,38 @@ Originally from https://code.google.com/p/word2vec/
 
 - Mac OS X compilation
 - CMake support
+- Outputs the SoftMax classifier
 
+# Outputs
 
-# Tools for computing distributed representtion of words
+Notations:
+
+- The number of words is denoted *N*.
+- The dimension is denoted *D*.
+
+## Words
+
+In text or binary the first line contains the number of words and the dimension separated by a space.
+ 
+### Binary
+
+- A list of *N* words and their vectors, i.e.:
+    - a string terminated by a space
+    - a lists of *D* floats
+
+## SoftMax classifier output
+
+As this is a binary tree, the classifier is represented as a list of parents (one for each node).
+
+- The *N* first nodes correpond to the leaves (the words)
+- The *N* - 1 next nodes correspond to the inner nodes of the tree (the last node being the root)
+
+### Binary
+
+- The list of parents (64 bits ints) for the *D* * 2 - 2  nodes of the tree (the root of the tree is not listed)
+- A list of *N* - 1 vectors (one for each inner node) of dimension *D*
+
+# Tools for computing distributed representation of words
 
 We provide an implementation of the Continuous Bag-of-Words (CBOW) and the Skip-gram model (SG), as well as several demo scripts.
 
