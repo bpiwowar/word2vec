@@ -28,3 +28,6 @@ target_link_libraries(word-analogy ${LIBRARIES})
 
 add_executable(compute-accuracy compute-accuracy.c)
 target_link_libraries(compute-accuracy ${LIBRARIES})
+
+add_executable(word-vector word-vector.c)
+target_link_libraries(word-vector ${LIBRARIES})

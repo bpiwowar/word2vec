@@ -350,6 +350,7 @@ void SaveVocab() {
 }
 
 void ReadVocab() {
+  printf("Reading vocabulary...\n");
   long long a, i = 0;
   char c;
   char word[MAX_STRING];
@@ -372,14 +373,18 @@ void ReadVocab() {
     printf("Vocab size: %lld\n", vocab_size);
     printf("Words in train file: %lld\n", train_words);
   }
-  fin = fopen(train_file, "rb");
-  if (fin == NULL) {
-    printf("ERROR: training data file not found!\n");
-    exit(1);
+
+  // Don't do this if piping...
+  if (num_threads > 1) {
+    fin = fopen(train_file, "rb");
+    if (fin == NULL) {
+      printf("ERROR: training data file not found!\n");
+      exit(1);
+    }
+    fseek(fin, 0, SEEK_END);
+    file_size = ftell(fin);
+    fclose(fin);
   }
-  fseek(fin, 0, SEEK_END);
-  file_size = ftell(fin);
-  fclose(fin);
 }
 
 void InitNet() {
@@ -427,12 +432,15 @@ void *TrainModelThread(void *id) {
   clock_t now;
   real *neu1 = (real *)calloc(layer1_size, sizeof(real));
   real *neu1e = (real *)calloc(layer1_size, sizeof(real));
+    printf("Opening train file %s\n", train_file);
   FILE *fi = fopen(train_file, "rb");
   if (fi == NULL) {
     fprintf(stderr, "no such file or directory: %s", train_file);
     exit(1);
   }
-  fseek(fi, file_size / (long long)num_threads * (long long)id, SEEK_SET);
+  if (num_threads > 1) {
+    fseek(fi, file_size / (long long)num_threads * (long long)id, SEEK_SET);
+  }
   while (1) {
     if (word_count - last_word_count > 10000) {
       word_count_actual += word_count - last_word_count;
@@ -619,6 +627,7 @@ void TrainModel() {
   if (output_file[0] == 0) return;
   InitNet();
   if (negative > 0) InitUnigramTable();
+  printf("Starting to learn\n");
   start = clock();
   for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainModelThread, (void *)a);
   for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
